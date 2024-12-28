@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Image, StyleSheet, View, Text } from "react-native";
 import OutlineButton from "../UI/OutlineButton";
 import { Colors } from "../../constants/colors";
@@ -7,15 +7,42 @@ import {
   useForegroundPermissions,
   PermissionStatus,
 } from "expo-location";
-import { getMapPreview } from "../../util/location";
-import { useNavigation } from "@react-navigation/native";
+import { getAddress, getMapPreview } from "../../util/location";
+import {
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 
-const LocationPicker = () => {
+const LocationPicker = ({ onPickLocation }) => {
   const [pickedLocation, setPickedLocation] = useState();
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
+  const route = useRoute();
 
   const [locationPermissionInformation, requestPermission] =
     useForegroundPermissions();
+
+  useEffect(() => {
+    if (isFocused && route.params) {
+      const mapPickedLocation = {
+        lat: route.params.pickedLat,
+        lng: route.params.pickedLng,
+      };
+      setPickedLocation(mapPickedLocation);
+    }
+  }, [route, isFocused]);
+
+  useEffect(() => {
+    async function handleLocation() {
+      if (pickedLocation) {
+        const address = await getAddress(pickedLocation.lat, pickedLocation.lng);
+        onPickLocation({...pickedLocation, address : address});
+      }
+    }
+    handleLocation();
+  }, [pickedLocation, onPickLocation]);
+
   async function verifyPermission() {
     if (
       locationPermissionInformation.status === PermissionStatus.UNDETERMINED
@@ -51,14 +78,15 @@ const LocationPicker = () => {
     });
   }
   function pickOnMapHandler() {
-    navigation.navigate("Map")
+    navigation.navigate("Map");
   }
 
   let locationPreview = <Text>No location picked yet.</Text>;
 
   if (pickedLocation) {
     locationPreview = (
-      <Image style={styles.image}
+      <Image
+        style={styles.image}
         source={{ uri: getMapPreview(pickedLocation.lat, pickedLocation.lng) }}
       />
     );
@@ -96,8 +124,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
   },
-  image : {
+  image: {
     width: "100%",
     height: "100%",
-  }
+  },
 });
